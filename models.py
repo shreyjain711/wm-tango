@@ -213,6 +213,7 @@ class AudioDiffusion(nn.Module):
         device = self.text_encoder.device
         classifier_free_guidance = guidance_scale > 1.0
         batch_size = len(prompt) * num_samples_per_prompt
+        print("FINEME HERE2")
 
         if classifier_free_guidance:
             prompt_embeds, boolean_prompt_mask = self.encode_text_classifier_free(prompt, num_samples_per_prompt)

@@ -280,7 +280,8 @@ class AudioDiffusion(nn.Module):
         mask[:, -1] = torch.tensor(self.create_circle_mask(), dtype=torch.bool).to(init_latents)
 
         init_latents_w_fft = torch.fft.fftshift(torch.fft.fft2(init_latents), dim=(-1, -2))
-        init_latents_w_fft[mask] = mask.clone()
+        mask = mask.type(torch.bool)
+        init_latents_w_fft[mask] = mask[mask].clone()
         init_latents = torch.fft.ifft2(torch.fft.ifftshift(init_latents_w_fft, dim=(-1, -2))).real
 
         return init_latents

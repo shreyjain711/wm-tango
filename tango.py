@@ -42,6 +42,7 @@ class Tango:
         
     def generate(self, prompt, steps=100, guidance=3, samples=1, disable_progress=True):
         """ Genrate audio for a single prompt string. """
+        print("FINDME HERE")
         with torch.no_grad():
             latents = self.model.inference([prompt], self.scheduler, steps, guidance, samples, disable_progress=disable_progress)
             mel = self.vae.decode_first_stage(latents)

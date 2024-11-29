@@ -257,9 +257,33 @@ class AudioDiffusion(nn.Module):
             latents = self.group_out(latents.permute(0, 2, 3, 1).contiguous()).permute(0, 3, 1, 2).contiguous()
         return latents
 
-    def add_tr_watermark(self, latents):
-        print("FINDME", latents.shape)
-        return latents
+    def create_circle_mask(self, img_size=(256, 16), m_size=16, r=4, num_pos=1):
+        x0 = y0 = m_size // 2
+
+        y, x = np.ogrid[:m_size, :m_size]
+        y = y[::-1]
+        mask = ((x - x0)**2 + (y-y0)**2) <= r**2  # Note the > instead of <= for inversion
+
+        full_mask = np.zeros(img_size)
+        xi = img_size[0]
+        split_size = xi//num_pos
+        for i in range(num_pos):
+            x1, x2 = (i)*split_size, (i+1)*split_size
+            xm = (x1+x2)//2
+            x1, x2 = xm-(r*2), xm+(r*2)
+            full_mask[x1:x2, :] = mask
+        return full_mask
+
+    def add_tr_watermark(self, init_latents):
+        print("FINDME HERE 3")
+        mask = np.zeros_like(init_latents)
+        mask[:, -1] = self.create_circle_mask()
+
+        init_latents_w_fft = torch.fft.fftshift(torch.fft.fft2(init_latents), dim=(-1, -2))
+        init_latents_w_fft[mask] = mask.clone()
+        init_latents = torch.fft.ifft2(torch.fft.ifftshift(init_latents_w_fft, dim=(-1, -2))).real
+
+        return init_latents
     
     def prepare_latents(self, batch_size, inference_scheduler, num_channels_latents, dtype, device):
         shape = (batch_size, num_channels_latents, 256, 16)

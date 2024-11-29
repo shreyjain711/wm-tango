@@ -257,7 +257,7 @@ class AudioDiffusion(nn.Module):
             latents = self.group_out(latents.permute(0, 2, 3, 1).contiguous()).permute(0, 3, 1, 2).contiguous()
         return latents
 
-    def add_tr_watermark(latents):
+    def add_tr_watermark(self, latents):
         print("FINDME", latents.shape)
         return latents
     

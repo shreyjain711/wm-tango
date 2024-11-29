@@ -276,8 +276,8 @@ class AudioDiffusion(nn.Module):
 
     def add_tr_watermark(self, init_latents):
         print("FINDME HERE 3")
-        mask = np.zeros_like(init_latents)
-        mask[:, -1] = self.create_circle_mask()
+        mask = torch.zeros_like(init_latents).to(init_latents)
+        mask[:, -1] = torch.tensor(self.create_circle_mask(), dtype=torch.bool).to(init_latents)
 
         init_latents_w_fft = torch.fft.fftshift(torch.fft.fft2(init_latents), dim=(-1, -2))
         init_latents_w_fft[mask] = mask.clone()

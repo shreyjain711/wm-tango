@@ -209,11 +209,10 @@ class AudioDiffusion(nn.Module):
 
     @torch.no_grad()
     def inference(self, prompt, inference_scheduler, num_steps=20, guidance_scale=3, num_samples_per_prompt=1, 
-                  disable_progress=True):
+                  disable_progress=True, wm_flag=True, wm_nums=1, wm_channel=7, debug_mode=False):
         device = self.text_encoder.device
         classifier_free_guidance = guidance_scale > 1.0
         batch_size = len(prompt) * num_samples_per_prompt
-        print("FINEME HERE2")
 
         if classifier_free_guidance:
             prompt_embeds, boolean_prompt_mask = self.encode_text_classifier_free(prompt, num_samples_per_prompt)
@@ -226,7 +225,8 @@ class AudioDiffusion(nn.Module):
         timesteps = inference_scheduler.timesteps
 
         num_channels_latents = self.unet.config.in_channels
-        latents = self.prepare_latents(batch_size, inference_scheduler, num_channels_latents, prompt_embeds.dtype, device)
+        # TREE RINGS HERE
+        latents = self.prepare_latents(batch_size, inference_scheduler, num_channels_latents, prompt_embeds.dtype, device, wm_flag, wm_nums, wm_channel, debug_mode=debug_mode)
 
         num_warmup_steps = len(timesteps) - num_steps * inference_scheduler.order
         progress_bar = tqdm(range(num_steps), disable=disable_progress)
@@ -274,22 +274,34 @@ class AudioDiffusion(nn.Module):
             full_mask[x1:x2, :] = mask
         return full_mask
 
-    def add_tr_watermark(self, init_latents):
-        print("FINDME HERE 3")
+    def add_tr_watermark(self, init_latents, wm_nums=1, wm_channel=7, debug_mode=False):
         mask = torch.zeros_like(init_latents).to(init_latents)
-        mask[:, -1] = torch.tensor(self.create_circle_mask(), dtype=torch.bool).to(init_latents)
+        mask = mask.type(torch.bool)
+        if wm_channel != -1:
+            mask[:, wm_channel] = torch.tensor(self.create_circle_mask(num_pos=wm_nums), dtype=torch.bool).to(init_latents)
+        else:
+            mask[:, :] = torch.tensor(self.create_circle_mask(num_pos=wm_nums), dtype=torch.bool).to(init_latents)
+        mask = ~mask
+
+        if debug_mode:
+            for i in mask[0, wm_channel]:
+                st = ""
+                for j in i:
+                    st += (". " if j==1 else "0 ")
+                print(st)
 
         init_latents_w_fft = torch.fft.fftshift(torch.fft.fft2(init_latents), dim=(-1, -2))
-        mask = mask.type(torch.bool)
-        init_latents_w_fft[mask] = mask[mask].clone()
+        init_latents_w_fft_c = init_latents_w_fft.clone()
+        
+        init_latents_w_fft[mask] = mask[mask].clone().type_as(init_latents_w_fft)
         init_latents = torch.fft.ifft2(torch.fft.ifftshift(init_latents_w_fft, dim=(-1, -2))).real
 
         return init_latents
     
-    def prepare_latents(self, batch_size, inference_scheduler, num_channels_latents, dtype, device):
+    def prepare_latents(self, batch_size, inference_scheduler, num_channels_latents, dtype, device, wm_flag=True, wm_nums=1, wm_channel=7, debug_mode=False):
         shape = (batch_size, num_channels_latents, 256, 16)
         latents = randn_tensor(shape, generator=None, device=device, dtype=dtype)
-        latents = self.add_tr_watermark(latents)
+        if wm_flag: latents = self.add_tr_watermark(latents, wm_nums, wm_channel, debug_mode)
         # scale the initial noise by the standard deviation required by the scheduler
         latents = latents * inference_scheduler.init_noise_sigma
         return latents

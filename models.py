@@ -23,6 +23,29 @@ from diffusers.utils import randn_tensor
 from diffusers import DDPMScheduler, UNet2DConditionModel
 from diffusers import AutoencoderKL as DiffuserAutoencoderKL
 
+def invert_tr_watermark(latents, wm_nums=1, wm_channel=7, debug_mode=False):
+    mask = torch.zeros_like(latents).to(latents)
+    mask = mask.type(torch.bool)
+    
+    if wm_channel != -1:
+        mask[:, wm_channel] = torch.tensor(create_circle_mask(num_pos=wm_nums), dtype=torch.bool).to(latents)
+    else:
+        mask[:, :] = torch.tensor(create_circle_mask(num_pos=wm_nums), dtype=torch.bool).to(latents)
+    mask = ~mask
+
+    # FFT to extract the watermark
+    latents_fft = torch.fft.fftshift(torch.fft.fft2(latents), dim=(-1, -2))
+    watermark_region = latents_fft[~mask].clone()
+
+    if debug_mode:
+        for i in watermark_region[0, wm_channel]:
+            st = ""
+            for j in i:
+                st += (". " if j != 0 else "0 ")
+            print(st)
+    
+    return watermark_region
+
 
 def build_pretrained_models(name):
     checkpoint = torch.load(get_metadata()[name]["path"], map_location="cpu")

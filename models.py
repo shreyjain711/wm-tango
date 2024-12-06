@@ -301,7 +301,7 @@ class AudioDiffusion(nn.Module):
     def prepare_latents(self, batch_size, inference_scheduler, num_channels_latents, dtype, device, wm_flag=True, wm_nums=1, wm_channel=7, debug_mode=False):
         shape = (batch_size, num_channels_latents, 256, 16)
         latents = randn_tensor(shape, generator=None, device=device, dtype=dtype)
-        if wm_flag: latents = self.add_tr_watermark(latents, wm_nums, wm_channel, debug_mode)
+        if wm_flag is True: latents = self.add_tr_watermark(latents, wm_nums, wm_channel, debug_mode)
         # scale the initial noise by the standard deviation required by the scheduler
         latents = latents * inference_scheduler.init_noise_sigma
         return latents
